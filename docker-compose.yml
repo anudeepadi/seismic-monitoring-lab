@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pinn-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./checkpoints:/app/checkpoints
+      - ./logs:/app/logs
+      - ./experiments:/app/experiments
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      - CHECKPOINT_DIR=/app/checkpoints
+      - DATA_DIR=/app/data
+      - EXPERIMENTS_DIR=/app/experiments
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - pinn-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pinn-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - pinn-network
+
+networks:
+  pinn-network:
+    driver: bridge
+
+volumes:
+  data:
+  checkpoints:
+  logs:
+  experiments:

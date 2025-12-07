@@ -1,0 +1,146 @@
+# PINN Seismic Inversion - Default Configuration
+# This file contains the default training configuration
+
+# =============================================================================
+# Model Architecture
+# =============================================================================
+model:
+  type: siren  # Options: siren, fourier, modulated
+  hidden_dim: 256
+  num_layers: 6
+  activation: sine  # For SIREN
+  omega_0: 30.0  # First layer frequency for SIREN
+  use_skip_connections: true
+
+# =============================================================================
+# Training Parameters
+# =============================================================================
+training:
+  epochs: 1000
+  batch_size: 4096
+  learning_rate: 0.0001
+
+  # Optimizer
+  optimizer: adam
+  weight_decay: 0.0
+  beta1: 0.9
+  beta2: 0.999
+
+  # Learning rate scheduler
+  scheduler: cosine
+  warmup_epochs: 50
+  min_lr: 0.000001
+
+  # Gradient clipping
+  clip_grad_norm: 1.0
+
+  # Mixed precision
+  mixed_precision: false
+
+# =============================================================================
+# Loss Configuration
+# =============================================================================
+loss:
+  # Loss weights
+  physics_weight: 1.0
+  data_weight: 1.0
+  boundary_weight: 0.1
+  initial_condition_weight: 0.1
+
+  # Adaptive weighting
+  use_adaptive_weights: true
+  adaptive_method: gradnorm  # Options: gradnorm, uncertainty, softadapt
+
+  # Regularization
+  regularization:
+    type: none  # Options: none, l2, tv
+    weight: 0.0001
+
+# =============================================================================
+# Physics Configuration
+# =============================================================================
+physics:
+  # Wave equation
+  wave_equation: acoustic  # Options: acoustic, elastic, viscoacoustic
+
+  # Domain bounds (meters)
+  domain:
+    x_min: 0.0
+    x_max: 2000.0
+    z_min: 0.0
+    z_max: 1000.0
+    t_min: 0.0
+    t_max: 1.0
+
+  # Velocity model
+  velocity_model: marmousi  # Options: marmousi, layered, salt_dome, fault, random
+
+  # Source configuration
+  source:
+    type: ricker  # Options: ricker, gaussian, plane_wave
+    frequency: 15.0  # Hz
+    position: [1000.0, 50.0]  # x, z in meters
+    amplitude: 1.0
+
+  # Boundary conditions
+  boundary:
+    type: absorbing  # Options: absorbing, pml, free_surface
+
+# =============================================================================
+# Data Configuration
+# =============================================================================
+data:
+  # Collocation points
+  num_collocation_points: 10000
+  sampling_method: latin_hypercube  # Options: uniform, latin_hypercube, sobol
+
+  # Boundary points
+  num_boundary_points: 2000
+
+  # Initial condition points
+  num_initial_points: 2000
+
+  # Data points (from synthetic/real data)
+  num_data_points: 5000
+
+  # Adaptive sampling
+  use_adaptive_sampling: false
+  adaptive_interval: 100  # epochs
+
+# =============================================================================
+# Checkpointing & Logging
+# =============================================================================
+output:
+  # Directories
+  output_dir: ./experiments
+  checkpoint_dir: ./checkpoints
+  log_dir: ./logs
+
+  # Checkpoint settings
+  checkpoint_interval: 100  # epochs
+  max_checkpoints: 10
+  keep_best: 3
+
+  # Logging
+  log_interval: 10  # steps
+  eval_interval: 50  # epochs
+
+  # Visualization
+  save_visualizations: true
+  viz_interval: 100  # epochs
+
+# =============================================================================
+# Hardware Configuration
+# =============================================================================
+hardware:
+  device: auto  # Options: auto, cuda, cpu
+  num_workers: 4
+  pin_memory: true
+
+# =============================================================================
+# Experiment Tracking
+# =============================================================================
+experiment:
+  name: null  # Will be auto-generated if null
+  tags: []
+  notes: ""
