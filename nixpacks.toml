@@ -10,8 +10,8 @@ cmds = [
 [phases.build]
 cmds = [
     "cd frontend && npm run build",
-    "cp -r frontend/dist/* static/ 2>/dev/null || mkdir -p static && cp -r frontend/dist/* static/"
+    "mkdir -p static && cp -r frontend/dist/* static/"
 ]
 
 [start]
-cmd = "python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT}"
