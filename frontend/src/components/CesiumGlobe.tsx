@@ -77,9 +77,9 @@ export default function CesiumGlobe({
       })
     );
 
-    // Set initial camera view to Indian Ocean
+    // Set initial camera view - global perspective
     viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(85, 5, 15000000),
+      destination: Cesium.Cartesian3.fromDegrees(0, 20, 25000000),
       orientation: {
         heading: Cesium.Math.toRadians(0),
         pitch: Cesium.Math.toRadians(-90),
@@ -95,21 +95,6 @@ export default function CesiumGlobe({
     if (viewer.scene.skyAtmosphere) {
       viewer.scene.skyAtmosphere.show = true;
     }
-
-    // Add Indian Ocean Region Boundary
-    viewer.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArray([
-          30, -40,
-          30, 30,
-          130, 30,
-          130, -40,
-          30, -40,
-        ]),
-        width: 2,
-        material: Cesium.Color.CYAN.withAlpha(0.3),
-      },
-    });
 
     // Cleanup on unmount
     return () => {

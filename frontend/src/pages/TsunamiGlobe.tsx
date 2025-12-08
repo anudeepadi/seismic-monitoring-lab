@@ -3,16 +3,25 @@ import { motion } from 'framer-motion';
 import CesiumGlobe from '../components/CesiumGlobe';
 import { useSeismicStream, SeismicEvent as APIEvent } from '../hooks/useSeismicStream';
 
-// Indian Ocean monitoring stations
+// Global seismic monitoring stations
 const STATIONS = [
+  // Pacific Ring of Fire
+  { id: 'MAJO', network: 'IU', name: 'Matsushiro', country: 'Japan', lat: 36.5457, lng: 138.2041, status: 'online' },
+  { id: 'TATO', network: 'IU', name: 'Taipei', country: 'Taiwan', lat: 24.9735, lng: 121.4971, status: 'online' },
+  { id: 'GUMO', network: 'IU', name: 'Guam', country: 'USA', lat: 13.5893, lng: 144.8684, status: 'online' },
+  { id: 'POHA', network: 'IU', name: 'Pohakuloa', country: 'Hawaii', lat: 19.7573, lng: -155.5326, status: 'online' },
+  { id: 'ANMO', network: 'IU', name: 'Albuquerque', country: 'USA', lat: 34.9459, lng: -106.4572, status: 'online' },
+  // Indian Ocean
   { id: 'PALK', network: 'II', name: 'Pallekele', country: 'Sri Lanka', lat: 7.2728, lng: 80.7022, status: 'online' },
   { id: 'COCO', network: 'II', name: 'Cocos Islands', country: 'Australia', lat: -12.1901, lng: 96.8349, status: 'online' },
   { id: 'DGAR', network: 'II', name: 'Diego Garcia', country: 'BIOT', lat: -7.4121, lng: 72.4525, status: 'online' },
-  { id: 'CHTO', network: 'IU', name: 'Chiang Mai', country: 'Thailand', lat: 18.8141, lng: 98.9443, status: 'online' },
-  { id: 'TATO', network: 'IU', name: 'Taipei', country: 'Taiwan', lat: 24.9735, lng: 121.4971, status: 'online' },
-  { id: 'NWAO', network: 'IU', name: 'Narrogin', country: 'Australia', lat: -32.9277, lng: 117.2390, status: 'online' },
-  { id: 'WRAB', network: 'II', name: 'Warramunga', country: 'Australia', lat: -19.9336, lng: 134.3600, status: 'online' },
-  { id: 'MBWA', network: 'IU', name: 'Marble Bar', country: 'Australia', lat: -21.1590, lng: 119.7313, status: 'online' },
+  // Atlantic & Caribbean
+  { id: 'SJG', network: 'IU', name: 'San Juan', country: 'Puerto Rico', lat: 18.1091, lng: -66.1500, status: 'online' },
+  { id: 'TEIG', network: 'IU', name: 'Tenerife', country: 'Spain', lat: 28.4801, lng: -16.3113, status: 'online' },
+  // South America
+  { id: 'LVC', network: 'II', name: 'Limon Verde', country: 'Chile', lat: -22.6127, lng: -68.9111, status: 'online' },
+  // Europe & Mediterranean
+  { id: 'GRFO', network: 'II', name: 'Grafenberg', country: 'Germany', lat: 49.6909, lng: 11.2203, status: 'online' },
 ];
 
 interface Station {
@@ -28,10 +37,10 @@ interface Station {
 
 interface RiskAssessment {
   level: 'OK' | 'WATCH' | 'WARNING' | 'CRITICAL';
-  indiaStatus: string;
+  globalStatus: string;
   threateningEvents: APIEvent[];
-  estimatedArrivalTime: string | null;
-  affectedRegions: string[];
+  tsunamiCount: number;
+  majorEventCount: number;
 }
 
 export default function TsunamiGlobe() {
@@ -43,10 +52,10 @@ export default function TsunamiGlobe() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment>({
     level: 'OK',
-    indiaStatus: 'NO IMMEDIATE THREAT',
+    globalStatus: 'NO ACTIVE WARNINGS',
     threateningEvents: [],
-    estimatedArrivalTime: null,
-    affectedRegions: [],
+    tsunamiCount: 0,
+    majorEventCount: 0,
   });
   const [sirenPlaying, setSirenPlaying] = useState(false);
   const [simulationActive, setSimulationActive] = useState(false);
@@ -123,7 +132,7 @@ export default function TsunamiGlobe() {
     setSirenPlaying(false);
   }, []);
 
-  // Simulation scenarios
+  // Global simulation scenarios
   const SIMULATION_SCENARIOS = [
     {
       name: '2004 Sumatra Earthquake',
@@ -140,31 +149,45 @@ export default function TsunamiGlobe() {
       },
     },
     {
-      name: 'Andaman Mega Event',
+      name: '2011 Japan Earthquake',
       event: {
-        event_id: 'sim_andaman_mega',
+        event_id: 'sim_japan_2011',
         timestamp: new Date().toISOString(),
-        lat: 10.5,
-        lng: 92.5,
-        magnitude: 8.9,
-        depth: 25,
-        place: 'Andaman Sea, near Nicobar Islands',
+        lat: 38.297,
+        lng: 142.373,
+        magnitude: 9.0,
+        depth: 29,
+        place: 'Near the east coast of Honshu, Japan',
         tsunami: true,
-        in_region: true,
+        in_region: false,
       },
     },
     {
-      name: 'Bay of Bengal Event',
+      name: 'Cascadia Subduction Zone',
       event: {
-        event_id: 'sim_bay_bengal',
+        event_id: 'sim_cascadia',
         timestamp: new Date().toISOString(),
-        lat: 14.5,
-        lng: 87.0,
-        magnitude: 7.8,
-        depth: 15,
-        place: 'Bay of Bengal, 400km east of Chennai',
+        lat: 44.5,
+        lng: -125.0,
+        magnitude: 9.0,
+        depth: 20,
+        place: 'Cascadia Subduction Zone, Pacific Northwest',
         tsunami: true,
-        in_region: true,
+        in_region: false,
+      },
+    },
+    {
+      name: 'Chile Mega-thrust',
+      event: {
+        event_id: 'sim_chile',
+        timestamp: new Date().toISOString(),
+        lat: -33.0,
+        lng: -72.0,
+        magnitude: 8.8,
+        depth: 35,
+        place: 'Off the coast of Chile',
+        tsunami: true,
+        in_region: false,
       },
     },
   ];
@@ -214,75 +237,41 @@ export default function TsunamiGlobe() {
     };
   }, []);
 
-  const calculateDistanceToIndia = (lat: number, lng: number): number => {
-    const indiaLat = 13.0;
-    const indiaLng = 80.0;
-    const R = 6371;
-    const dLat = (indiaLat - lat) * Math.PI / 180;
-    const dLng = (indiaLng - lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat * Math.PI / 180) * Math.cos(indiaLat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  // Risk assessment
+  // Global risk assessment
   useEffect(() => {
     const allEvents = simulatedEvent ? [...liveEvents, simulatedEvent] : liveEvents;
-    const allIndianOceanEvents = simulatedEvent && simulatedEvent.in_region
-      ? [...indianOceanEvents, simulatedEvent]
-      : indianOceanEvents;
 
     const tsunamiEvents = allEvents.filter(e => e.tsunami);
     const highMagEvents = allEvents.filter(e => e.magnitude >= 7.0 && e.depth < 100);
+    const majorEvents = allEvents.filter(e => e.magnitude >= 6.0);
 
     let level: RiskAssessment['level'] = 'OK';
-    let indiaStatus = 'NO IMMEDIATE THREAT';
-    let affectedRegions: string[] = [];
-    let estimatedArrivalTime: string | null = null;
+    let globalStatus = 'NO ACTIVE WARNINGS';
     let threateningEvents: APIEvent[] = [];
 
     if (tsunamiEvents.length > 0) {
-      const nearestTsunami = tsunamiEvents.reduce((nearest, event) => {
-        const dist = calculateDistanceToIndia(event.lat, event.lng);
-        return dist < calculateDistanceToIndia(nearest.lat, nearest.lng) ? event : nearest;
-      }, tsunamiEvents[0]);
-
-      const distance = calculateDistanceToIndia(nearestTsunami.lat, nearestTsunami.lng);
-      const tsunamiSpeed = 700;
-      const arrivalHours = distance / tsunamiSpeed;
-
-      if (distance < 3000) {
-        level = 'CRITICAL';
-        indiaStatus = 'TSUNAMI WARNING - EVACUATE COASTAL AREAS';
-        estimatedArrivalTime = `${Math.round(arrivalHours * 60)} MINUTES`;
-        affectedRegions = ['Tamil Nadu', 'Andhra Pradesh', 'Andaman & Nicobar', 'Kerala'];
-        threateningEvents = tsunamiEvents;
-        playSiren();
-      }
+      level = 'CRITICAL';
+      globalStatus = `${tsunamiEvents.length} ACTIVE TSUNAMI WARNING${tsunamiEvents.length > 1 ? 'S' : ''}`;
+      threateningEvents = tsunamiEvents;
+      playSiren();
     } else if (highMagEvents.length > 0) {
-      const nearestEvent = highMagEvents.reduce((nearest, event) => {
-        const dist = calculateDistanceToIndia(event.lat, event.lng);
-        return dist < calculateDistanceToIndia(nearest.lat, nearest.lng) ? event : nearest;
-      }, highMagEvents[0]);
-
-      const distance = calculateDistanceToIndia(nearestEvent.lat, nearestEvent.lng);
-
-      if (distance < 2000 && nearestEvent.magnitude >= 7.5) {
-        level = 'WARNING';
-        indiaStatus = 'HIGH SEISMIC ACTIVITY - MONITOR ALERTS';
-        affectedRegions = ['Tamil Nadu', 'Andaman & Nicobar'];
-        threateningEvents = highMagEvents;
-      } else if (distance < 4000) {
-        level = 'WATCH';
-        indiaStatus = 'ELEVATED SEISMIC ACTIVITY';
-        threateningEvents = highMagEvents;
-      }
+      level = 'WARNING';
+      globalStatus = `${highMagEvents.length} MAJOR SEISMIC EVENT${highMagEvents.length > 1 ? 'S' : ''} DETECTED`;
+      threateningEvents = highMagEvents;
+    } else if (majorEvents.length > 0) {
+      level = 'WATCH';
+      globalStatus = `MONITORING ${majorEvents.length} SIGNIFICANT EVENT${majorEvents.length > 1 ? 'S' : ''}`;
+      threateningEvents = majorEvents;
     }
 
-    setRiskAssessment({ level, indiaStatus, threateningEvents, estimatedArrivalTime, affectedRegions });
-  }, [liveEvents, indianOceanEvents, simulatedEvent, playSiren]);
+    setRiskAssessment({
+      level,
+      globalStatus,
+      threateningEvents,
+      tsunamiCount: tsunamiEvents.length,
+      majorEventCount: highMagEvents.length,
+    });
+  }, [liveEvents, simulatedEvent, playSiren]);
 
   // Update time and amplitudes
   useEffect(() => {
@@ -325,8 +314,8 @@ export default function TsunamiGlobe() {
         <div className="header-brand">
           <span className="brand-icon">&#9678;</span>
           <div className="brand-text">
-            <span className="brand-title">TSUNAMI EARLY WARNING</span>
-            <span className="brand-sub">3D GLOBE VIEW | INDIAN OCEAN</span>
+            <span className="brand-title">GLOBAL TSUNAMI WARNING SYSTEM</span>
+            <span className="brand-sub">3D GLOBE VIEW | REAL-TIME MONITORING</span>
           </div>
         </div>
 
@@ -342,7 +331,7 @@ export default function TsunamiGlobe() {
           </div>
           <div className="stat-pills">
             <span className="stat-pill">{liveEvents.length} Events</span>
-            <span className="stat-pill highlight">{indianOceanEvents.length} IO</span>
+            <span className="stat-pill highlight">{riskAssessment.majorEventCount} M7+</span>
           </div>
         </div>
       </header>
@@ -351,12 +340,12 @@ export default function TsunamiGlobe() {
       <div className={`globe-alert ${riskAssessment.level.toLowerCase()}`}>
         <div className="alert-left">
           <span className={`alert-indicator ${riskAssessment.level.toLowerCase()}`} />
-          <span className="alert-label">INDIA:</span>
+          <span className="alert-label">STATUS:</span>
           <span className="alert-text" style={{ color: getRiskColor(riskAssessment.level) }}>
-            {riskAssessment.level === 'OK' ? 'ALL CLEAR' : riskAssessment.indiaStatus}
+            {riskAssessment.level === 'OK' ? 'ALL CLEAR' : riskAssessment.globalStatus}
           </span>
-          {riskAssessment.estimatedArrivalTime && (
-            <span className="alert-eta">ETA: {riskAssessment.estimatedArrivalTime}</span>
+          {riskAssessment.tsunamiCount > 0 && (
+            <span className="alert-eta">{riskAssessment.tsunamiCount} TSUNAMI ALERT{riskAssessment.tsunamiCount > 1 ? 'S' : ''}</span>
           )}
         </div>
 
@@ -481,8 +470,8 @@ export default function TsunamiGlobe() {
                   <span className="row-value">{new Date(selectedEvent.timestamp).toLocaleString()}</span>
                 </div>
                 <div className="card-row">
-                  <span className="row-label">Distance to India</span>
-                  <span className="row-value">{Math.round(calculateDistanceToIndia(selectedEvent.lat, selectedEvent.lng))} km</span>
+                  <span className="row-label">Coordinates</span>
+                  <span className="row-value">{selectedEvent.lat.toFixed(2)}°, {selectedEvent.lng.toFixed(2)}°</span>
                 </div>
               </div>
             </motion.div>

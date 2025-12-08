@@ -1,44 +1,53 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Map, { Marker, Popup, NavigationControl } from 'react-map-gl';
-import type { MapRef } from 'react-map-gl';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Map, { Marker, Popup, NavigationControl, Source, Layer } from 'react-map-gl';
+import { motion } from 'framer-motion';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSeismicStream, SeismicEvent as APIEvent } from '../hooks/useSeismicStream';
+import circle from '@turf/circle';
 
-// Indian Ocean monitoring stations
+// Global monitoring stations
 const STATIONS = [
+  // Pacific Ring of Fire
+  { id: 'MAJO', network: 'IU', name: 'Matsushiro', country: 'Japan', lat: 36.5457, lng: 138.2041, status: 'online' },
+  { id: 'TATO', network: 'IU', name: 'Taipei', country: 'Taiwan', lat: 24.9735, lng: 121.4971, status: 'online' },
+  { id: 'GUMO', network: 'IU', name: 'Guam', country: 'USA', lat: 13.5893, lng: 144.8684, status: 'online' },
+  { id: 'POHA', network: 'IU', name: 'Pohakuloa', country: 'Hawaii', lat: 19.7573, lng: -155.5326, status: 'online' },
+  { id: 'ANMO', network: 'IU', name: 'Albuquerque', country: 'USA', lat: 34.9459, lng: -106.4572, status: 'online' },
+  // Indian Ocean
   { id: 'PALK', network: 'II', name: 'Pallekele', country: 'Sri Lanka', lat: 7.2728, lng: 80.7022, status: 'online' },
   { id: 'COCO', network: 'II', name: 'Cocos Islands', country: 'Australia', lat: -12.1901, lng: 96.8349, status: 'online' },
   { id: 'DGAR', network: 'II', name: 'Diego Garcia', country: 'BIOT', lat: -7.4121, lng: 72.4525, status: 'online' },
-  { id: 'CHTO', network: 'IU', name: 'Chiang Mai', country: 'Thailand', lat: 18.8141, lng: 98.9443, status: 'online' },
-  { id: 'TATO', network: 'IU', name: 'Taipei', country: 'Taiwan', lat: 24.9735, lng: 121.4971, status: 'online' },
-  { id: 'NWAO', network: 'IU', name: 'Narrogin', country: 'Australia', lat: -32.9277, lng: 117.2390, status: 'online' },
-  { id: 'WRAB', network: 'II', name: 'Warramunga', country: 'Australia', lat: -19.9336, lng: 134.3600, status: 'online' },
-  { id: 'MBWA', network: 'IU', name: 'Marble Bar', country: 'Australia', lat: -21.1590, lng: 119.7313, status: 'online' },
+  // Atlantic & Caribbean
+  { id: 'SJG', network: 'IU', name: 'San Juan', country: 'Puerto Rico', lat: 18.1091, lng: -66.1500, status: 'online' },
+  { id: 'TEIG', network: 'IU', name: 'Tenerife', country: 'Spain', lat: 28.4801, lng: -16.3113, status: 'online' },
+  // South America
+  { id: 'LVC', network: 'II', name: 'Limon Verde', country: 'Chile', lat: -22.6127, lng: -68.9111, status: 'online' },
+  // Europe & Mediterranean
+  { id: 'GRFO', network: 'II', name: 'Grafenberg', country: 'Germany', lat: 49.6909, lng: 11.2203, status: 'online' },
 ];
 
-// Indian coastal regions for risk assessment
-const INDIAN_COASTAL_REGIONS = [
-  { name: 'Andaman & Nicobar', lat: 11.7401, lng: 92.6586, population: '0.4M', risk: 'HIGH' },
-  { name: 'Tamil Nadu Coast', lat: 10.7905, lng: 79.8428, population: '15M', risk: 'HIGH' },
-  { name: 'Andhra Pradesh Coast', lat: 15.9129, lng: 80.7314, population: '8M', risk: 'MEDIUM' },
-  { name: 'Odisha Coast', lat: 19.8135, lng: 85.8312, population: '5M', risk: 'MEDIUM' },
-  { name: 'West Bengal Coast', lat: 21.9497, lng: 88.0883, population: '4M', risk: 'MEDIUM' },
-  { name: 'Kerala Coast', lat: 9.9312, lng: 76.2673, population: '10M', risk: 'HIGH' },
-  { name: 'Karnataka Coast', lat: 13.3409, lng: 74.7421, population: '3M', risk: 'MEDIUM' },
-  { name: 'Gujarat Coast', lat: 21.1702, lng: 72.8311, population: '6M', risk: 'LOW' },
-  { name: 'Maharashtra Coast', lat: 18.9220, lng: 72.8347, population: '12M', risk: 'LOW' },
+// Global coastal risk zones
+const GLOBAL_COASTAL_REGIONS = [
+  { name: 'Japan Pacific Coast', lat: 35.6762, lng: 139.6503, population: '40M', risk: 'HIGH' },
+  { name: 'Indonesia', lat: -6.2088, lng: 106.8456, population: '150M', risk: 'CRITICAL' },
+  { name: 'Chile Coast', lat: -33.4489, lng: -70.6693, population: '10M', risk: 'HIGH' },
+  { name: 'US West Coast', lat: 34.0522, lng: -118.2437, population: '25M', risk: 'MEDIUM' },
+  { name: 'Hawaii', lat: 21.3069, lng: -157.8583, population: '1.4M', risk: 'HIGH' },
+  { name: 'Philippines', lat: 14.5995, lng: 120.9842, population: '30M', risk: 'HIGH' },
+  { name: 'New Zealand', lat: -41.2865, lng: 174.7762, population: '2M', risk: 'MEDIUM' },
+  { name: 'Mediterranean', lat: 36.8969, lng: 14.5146, population: '50M', risk: 'LOW' },
+  { name: 'Caribbean', lat: 18.2208, lng: -66.5901, population: '20M', risk: 'MEDIUM' },
 ];
 
-// Other at-risk regions in Indian Ocean
-const OTHER_RISK_REGIONS = [
-  { name: 'Sri Lanka', risk: 'HIGH', distance: 0 },
-  { name: 'Indonesia (Sumatra)', risk: 'CRITICAL', distance: 0 },
-  { name: 'Thailand', risk: 'HIGH', distance: 0 },
-  { name: 'Myanmar', risk: 'MEDIUM', distance: 0 },
-  { name: 'Bangladesh', risk: 'MEDIUM', distance: 0 },
-  { name: 'Maldives', risk: 'HIGH', distance: 0 },
-  { name: 'Malaysia', risk: 'MEDIUM', distance: 0 },
+// Global tsunami-prone regions by basin
+const TSUNAMI_BASINS = [
+  { name: 'Pacific Ring of Fire', risk: 'CRITICAL', distance: 0 },
+  { name: 'Indian Ocean', risk: 'HIGH', distance: 0 },
+  { name: 'Mediterranean Sea', risk: 'MEDIUM', distance: 0 },
+  { name: 'Caribbean Sea', risk: 'MEDIUM', distance: 0 },
+  { name: 'Atlantic Ocean', risk: 'LOW', distance: 0 },
+  { name: 'Cascadia Zone', risk: 'HIGH', distance: 0 },
+  { name: 'Alaska-Aleutian', risk: 'HIGH', distance: 0 },
 ];
 
 interface Station {
@@ -54,10 +63,10 @@ interface Station {
 
 interface RiskAssessment {
   level: 'OK' | 'WATCH' | 'WARNING' | 'CRITICAL';
-  indiaStatus: string;
+  globalStatus: string;
   threateningEvents: APIEvent[];
-  estimatedArrivalTime: string | null;
-  affectedRegions: string[];
+  tsunamiCount: number;
+  majorEventCount: number;
 }
 
 export default function TsunamiMap() {
@@ -69,130 +78,149 @@ export default function TsunamiMap() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment>({
     level: 'OK',
-    indiaStatus: 'NO IMMEDIATE THREAT',
+    globalStatus: 'NO IMMEDIATE THREAT',
     threateningEvents: [],
-    estimatedArrivalTime: null,
-    affectedRegions: [],
+    tsunamiCount: 0,
+    majorEventCount: 0,
   });
   const [sirenPlaying, setSirenPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [simulationActive, setSimulationActive] = useState(false);
   const [simulatedEvent, setSimulatedEvent] = useState<APIEvent | null>(null);
   const [waveRadius, setWaveRadius] = useState(0);
   const [simulationTime, setSimulationTime] = useState(0);
   const [simMenuOpen, setSimMenuOpen] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
-  const gainNodesRef = useRef<GainNode[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const simulationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Emergency Alert Siren - Purge/Civil Defense style
+  // Emergency Alert Siren using MP3 audio file
   const playSiren = useCallback(() => {
-    if (sirenPlaying) return;
+    if (sirenPlaying || muted) return;
 
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-
-      // Create multiple oscillators for rich, ominous sound
-      const masterGain = audioContext.createGain();
-      masterGain.connect(audioContext.destination);
-      masterGain.gain.value = 0.4;
-
-      const now = audioContext.currentTime;
-      const duration = 30; // 30 seconds
-
-      // Main siren - slow, deep sweep (Purge-style)
-      const mainOsc = audioContext.createOscillator();
-      const mainGain = audioContext.createGain();
-      mainOsc.connect(mainGain);
-      mainGain.connect(masterGain);
-      mainOsc.type = 'sawtooth';
-      mainGain.gain.value = 0.5;
-
-      // Slow, ominous frequency sweep (low to high, then pause)
-      for (let i = 0; i < 10; i++) {
-        const cycleStart = now + i * 3;
-        // Rise slowly from deep bass
-        mainOsc.frequency.setValueAtTime(120, cycleStart);
-        mainOsc.frequency.linearRampToValueAtTime(480, cycleStart + 2);
-        // Hold at peak
-        mainOsc.frequency.setValueAtTime(480, cycleStart + 2.5);
-        // Quick drop
-        mainOsc.frequency.linearRampToValueAtTime(120, cycleStart + 2.8);
+      // Create or reuse audio element
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/emergency-alert.mp3');
+        audioRef.current.loop = true;
       }
 
-      // Sub bass drone for ominous feeling
-      const subOsc = audioContext.createOscillator();
-      const subGain = audioContext.createGain();
-      subOsc.connect(subGain);
-      subGain.connect(masterGain);
-      subOsc.type = 'sine';
-      subOsc.frequency.value = 55; // Deep A note
-      subGain.gain.value = 0.3;
-
-      // Pulsing effect on sub bass
-      for (let i = 0; i < 30; i++) {
-        subGain.gain.setValueAtTime(0.3, now + i);
-        subGain.gain.linearRampToValueAtTime(0.1, now + i + 0.5);
-        subGain.gain.linearRampToValueAtTime(0.3, now + i + 1);
-      }
-
-      // High-frequency alarm overlay
-      const alarmOsc = audioContext.createOscillator();
-      const alarmGain = audioContext.createGain();
-      alarmOsc.connect(alarmGain);
-      alarmGain.connect(masterGain);
-      alarmOsc.type = 'square';
-      alarmGain.gain.value = 0.15;
-
-      // Staccato alarm pattern
-      for (let i = 0; i < 60; i++) {
-        const t = now + i * 0.5;
-        alarmOsc.frequency.setValueAtTime(880, t);
-        alarmOsc.frequency.setValueAtTime(660, t + 0.25);
-        alarmGain.gain.setValueAtTime(0.15, t);
-        alarmGain.gain.setValueAtTime(0, t + 0.2);
-        alarmGain.gain.setValueAtTime(0.15, t + 0.25);
-        alarmGain.gain.setValueAtTime(0, t + 0.45);
-      }
-
-      // Start all oscillators
-      mainOsc.start(now);
-      subOsc.start(now);
-      alarmOsc.start(now);
-
-      mainOsc.stop(now + duration);
-      subOsc.stop(now + duration);
-      alarmOsc.stop(now + duration);
-
-      oscillatorsRef.current = [mainOsc, subOsc, alarmOsc];
-      gainNodesRef.current = [mainGain, subGain, alarmGain, masterGain];
-
-      setSirenPlaying(true);
-      setTimeout(() => setSirenPlaying(false), duration * 1000);
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().then(() => {
+        setSirenPlaying(true);
+      }).catch((e) => {
+        console.error('Audio playback failed:', e);
+      });
     } catch (e) {
       console.error('Audio playback failed:', e);
     }
-  }, [sirenPlaying]);
+  }, [sirenPlaying, muted]);
 
   const stopSiren = useCallback(() => {
-    // Stop all oscillators
-    oscillatorsRef.current.forEach(osc => {
-      try {
-        osc.stop();
-      } catch (e) {}
-    });
-    oscillatorsRef.current = [];
-    gainNodesRef.current = [];
-
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
     setSirenPlaying(false);
   }, []);
 
-  // Simulation scenarios
+  // Toggle mute
+  const toggleMute = useCallback(() => {
+    setMuted(prev => {
+      const newMuted = !prev;
+      if (newMuted && audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setSirenPlaying(false);
+      }
+      return newMuted;
+    });
+  }, []);
+
+  // Generate GeoJSON for simulation wave propagation circles (geographic, zoom-independent)
+  const waveCirclesGeoJSON = useMemo(() => {
+    if (!simulatedEvent || waveRadius <= 0) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
+
+    const numRings = 5;
+    const features = [];
+
+    for (let i = 0; i < numRings; i++) {
+      const ringRadiusKm = waveRadius * (1 - i * 0.15);
+      if (ringRadiusKm <= 0) continue;
+
+      const circleFeature = circle(
+        [simulatedEvent.lng, simulatedEvent.lat],
+        ringRadiusKm,
+        { steps: 64, units: 'kilometers' }
+      );
+      circleFeature.properties = { ring: i, opacity: 0.6 - i * 0.1 };
+      features.push(circleFeature);
+    }
+
+    return { type: 'FeatureCollection' as const, features };
+  }, [simulatedEvent, waveRadius]);
+
+  // Generate GeoJSON for tsunami warning impact zones (only for tsunami events)
+  const tsunamiImpactGeoJSON = useMemo(() => {
+    // Filter only tsunami events (including simulated)
+    const allEvents = simulatedEvent ? [...liveEvents, simulatedEvent] : liveEvents;
+    const tsunamiEvents = allEvents.filter(e => e.tsunami);
+
+    if (tsunamiEvents.length === 0) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
+
+    const features: any[] = [];
+
+    tsunamiEvents.forEach(event => {
+      // Calculate impact radius based on magnitude (larger for bigger quakes)
+      const baseRadiusKm = Math.pow(10, (event.magnitude - 3) / 1.5) * 15;
+
+      // Severe zone (inner) - strongest shaking/immediate danger
+      const severeCircle = circle(
+        [event.lng, event.lat],
+        baseRadiusKm * 0.3,
+        { steps: 64, units: 'kilometers' }
+      );
+      severeCircle.properties = {
+        zoneType: 'severe',
+        opacity: 0.25,
+        eventId: event.event_id
+      };
+      features.push(severeCircle);
+
+      // Moderate zone (middle)
+      const moderateCircle = circle(
+        [event.lng, event.lat],
+        baseRadiusKm * 0.6,
+        { steps: 64, units: 'kilometers' }
+      );
+      moderateCircle.properties = {
+        zoneType: 'moderate',
+        opacity: 0.15,
+        eventId: event.event_id
+      };
+      features.push(moderateCircle);
+
+      // Light zone (outer) - tsunami wave reach
+      const lightCircle = circle(
+        [event.lng, event.lat],
+        baseRadiusKm,
+        { steps: 64, units: 'kilometers' }
+      );
+      lightCircle.properties = {
+        zoneType: 'light',
+        opacity: 0.1,
+        eventId: event.event_id
+      };
+      features.push(lightCircle);
+    });
+
+    return { type: 'FeatureCollection' as const, features };
+  }, [liveEvents, simulatedEvent]);
+
+  // Simulation scenarios - Global
   const SIMULATION_SCENARIOS = [
     {
       name: '2004 Sumatra Earthquake',
@@ -210,34 +238,49 @@ export default function TsunamiMap() {
       description: 'Magnitude 9.1 megathrust earthquake - deadliest tsunami in recorded history',
     },
     {
-      name: '2011 Japan-like Event',
+      name: '2011 Japan Earthquake',
       event: {
-        event_id: 'sim_andaman_mega',
+        event_id: 'sim_japan_2011',
         timestamp: new Date().toISOString(),
-        lat: 10.5,
-        lng: 92.5,
-        magnitude: 8.9,
-        depth: 25,
-        place: 'Andaman Sea, near Nicobar Islands',
+        lat: 38.322,
+        lng: 142.369,
+        magnitude: 9.1,
+        depth: 29,
+        place: 'Near the east coast of Honshu, Japan',
         tsunami: true,
         in_region: true,
       },
-      description: 'Hypothetical megathrust event in the Andaman subduction zone',
+      description: 'Tōhoku earthquake - triggered Fukushima nuclear disaster',
     },
     {
-      name: 'Bay of Bengal Event',
+      name: 'Cascadia Subduction Zone',
       event: {
-        event_id: 'sim_bay_bengal',
+        event_id: 'sim_cascadia',
         timestamp: new Date().toISOString(),
-        lat: 14.5,
-        lng: 87.0,
-        magnitude: 7.8,
-        depth: 15,
-        place: 'Bay of Bengal, 400km east of Chennai',
+        lat: 44.5,
+        lng: -125.0,
+        magnitude: 9.0,
+        depth: 20,
+        place: 'Cascadia Subduction Zone, Pacific Northwest',
         tsunami: true,
         in_region: true,
       },
-      description: 'Major earthquake directly threatening Indian east coast',
+      description: 'Hypothetical megathrust threatening US/Canada Pacific coast',
+    },
+    {
+      name: '1960 Chile Earthquake',
+      event: {
+        event_id: 'sim_chile_1960',
+        timestamp: new Date().toISOString(),
+        lat: -38.29,
+        lng: -73.05,
+        magnitude: 9.5,
+        depth: 25,
+        place: 'Valdivia, Chile',
+        tsunami: true,
+        in_region: true,
+      },
+      description: 'Largest recorded earthquake in history - trans-Pacific tsunami',
     },
   ];
 
@@ -291,87 +334,43 @@ export default function TsunamiMap() {
     };
   }, []);
 
-  // Calculate distance from event to India
-  const calculateDistanceToIndia = (lat: number, lng: number): number => {
-    // Approximate center of Indian east coast
-    const indiaLat = 13.0;
-    const indiaLng = 80.0;
-    const R = 6371; // Earth radius in km
-    const dLat = (indiaLat - lat) * Math.PI / 180;
-    const dLng = (indiaLng - lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat * Math.PI / 180) * Math.cos(indiaLat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  // Assess tsunami risk for India
+  // Assess global tsunami risk
   useEffect(() => {
     // Include simulated event in assessment
     const allEvents = simulatedEvent ? [...liveEvents, simulatedEvent] : liveEvents;
-    const allIndianOceanEvents = simulatedEvent && simulatedEvent.in_region
-      ? [...indianOceanEvents, simulatedEvent]
-      : indianOceanEvents;
 
     const tsunamiEvents = allEvents.filter(e => e.tsunami);
     const highMagEvents = allEvents.filter(e => e.magnitude >= 7.0 && e.depth < 100);
-    const indianOceanHighMag = allIndianOceanEvents.filter(e => e.magnitude >= 6.5);
+    const majorEvents = allEvents.filter(e => e.magnitude >= 6.0);
 
     let level: RiskAssessment['level'] = 'OK';
-    let indiaStatus = 'NO IMMEDIATE THREAT';
-    let affectedRegions: string[] = [];
-    let estimatedArrivalTime: string | null = null;
+    let globalStatus = 'NO IMMEDIATE THREAT';
     let threateningEvents: APIEvent[] = [];
 
     // Check for tsunami warnings
     if (tsunamiEvents.length > 0) {
-      const nearestTsunami = tsunamiEvents.reduce((nearest, event) => {
-        const dist = calculateDistanceToIndia(event.lat, event.lng);
-        return dist < calculateDistanceToIndia(nearest.lat, nearest.lng) ? event : nearest;
-      }, tsunamiEvents[0]);
-
-      const distance = calculateDistanceToIndia(nearestTsunami.lat, nearestTsunami.lng);
-      const tsunamiSpeed = 700; // km/h approximate
-      const arrivalHours = distance / tsunamiSpeed;
-
-      if (distance < 3000) {
-        level = 'CRITICAL';
-        indiaStatus = 'TSUNAMI WARNING - EVACUATE COASTAL AREAS';
-        estimatedArrivalTime = `${Math.round(arrivalHours * 60)} MINUTES`;
-        affectedRegions = ['Tamil Nadu Coast', 'Andhra Pradesh Coast', 'Andaman & Nicobar', 'Kerala Coast'];
-        threateningEvents = tsunamiEvents;
-        playSiren();
-      }
-    } else if (highMagEvents.length > 0 || indianOceanHighMag.length > 0) {
-      const relevantEvents = [...highMagEvents, ...indianOceanHighMag];
-      const nearestEvent = relevantEvents.reduce((nearest, event) => {
-        const dist = calculateDistanceToIndia(event.lat, event.lng);
-        return dist < calculateDistanceToIndia(nearest.lat, nearest.lng) ? event : nearest;
-      }, relevantEvents[0]);
-
-      const distance = calculateDistanceToIndia(nearestEvent.lat, nearestEvent.lng);
-
-      if (distance < 2000 && nearestEvent.magnitude >= 7.5) {
-        level = 'WARNING';
-        indiaStatus = 'HIGH SEISMIC ACTIVITY - MONITOR ALERTS';
-        affectedRegions = ['Tamil Nadu Coast', 'Andaman & Nicobar'];
-        threateningEvents = relevantEvents;
-      } else if (distance < 4000) {
-        level = 'WATCH';
-        indiaStatus = 'ELEVATED SEISMIC ACTIVITY IN REGION';
-        threateningEvents = relevantEvents;
-      }
+      level = 'CRITICAL';
+      globalStatus = `TSUNAMI WARNING - ${tsunamiEvents.length} ACTIVE`;
+      threateningEvents = tsunamiEvents;
+      playSiren();
+    } else if (highMagEvents.length > 0) {
+      level = 'WARNING';
+      globalStatus = `HIGH SEISMIC ACTIVITY - ${highMagEvents.length} MAJOR EVENT${highMagEvents.length > 1 ? 'S' : ''}`;
+      threateningEvents = highMagEvents;
+    } else if (majorEvents.length > 0) {
+      level = 'WATCH';
+      globalStatus = `ELEVATED ACTIVITY - ${majorEvents.length} SIGNIFICANT EVENT${majorEvents.length > 1 ? 'S' : ''}`;
+      threateningEvents = majorEvents;
     }
 
     setRiskAssessment({
       level,
-      indiaStatus,
+      globalStatus,
       threateningEvents,
-      estimatedArrivalTime,
-      affectedRegions,
+      tsunamiCount: tsunamiEvents.length,
+      majorEventCount: majorEvents.length,
     });
-  }, [liveEvents, indianOceanEvents, simulatedEvent, playSiren]);
+  }, [liveEvents, simulatedEvent, playSiren]);
 
   // Update time and station amplitudes
   useEffect(() => {
@@ -419,9 +418,9 @@ export default function TsunamiMap() {
         <div className="header-left">
           <div className="system-title">
             <span className="title-icon">◉</span>
-            <span className="title-text">INDIAN OCEAN TSUNAMI EARLY WARNING SYSTEM</span>
+            <span className="title-text">GLOBAL TSUNAMI WARNING SYSTEM</span>
           </div>
-          <div className="system-subtitle">Real-Time Seismic Monitoring Network</div>
+          <div className="system-subtitle">Real-Time Seismic Monitoring Network | 2D MAP VIEW</div>
         </div>
 
         <div className="header-center">
@@ -447,33 +446,33 @@ export default function TsunamiMap() {
               <span className="stat-label">EVENTS/24H</span>
             </div>
             <div className="stat-item">
-              <span className="stat-value">{indianOceanEvents.length}</span>
-              <span className="stat-label">INDIAN OCEAN</span>
+              <span className="stat-value">{liveEvents.filter(e => e.magnitude >= 5).length}</span>
+              <span className="stat-label">M5+ EVENTS</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* India Risk Alert Banner */}
+      {/* Global Alert Banner */}
       <div className={`india-alert-banner ${riskAssessment.level.toLowerCase()}`}>
         <div className="alert-indicator">
           <span className={`indicator-light ${riskAssessment.level.toLowerCase()}`} />
         </div>
         <div className="alert-content">
           <div className="alert-primary">
-            <span className="alert-label">INDIA STATUS:</span>
+            <span className="alert-label">STATUS:</span>
             <span className={`alert-status ${riskAssessment.level.toLowerCase()}`}>
-              {riskAssessment.level === 'OK' ? '✓ OK - NO THREAT' : riskAssessment.indiaStatus}
+              {riskAssessment.level === 'OK' ? '✓ OK - NO THREAT' : riskAssessment.globalStatus}
             </span>
           </div>
-          {riskAssessment.estimatedArrivalTime && (
+          {riskAssessment.tsunamiCount > 0 && (
             <div className="alert-eta">
-              ETA TO COAST: <strong>{riskAssessment.estimatedArrivalTime}</strong>
+              ACTIVE WARNINGS: <strong>{riskAssessment.tsunamiCount}</strong>
             </div>
           )}
-          {riskAssessment.affectedRegions.length > 0 && (
+          {riskAssessment.majorEventCount > 0 && riskAssessment.level !== 'OK' && (
             <div className="alert-regions">
-              AFFECTED: {riskAssessment.affectedRegions.join(' | ')}
+              SIGNIFICANT EVENTS: {riskAssessment.majorEventCount}
             </div>
           )}
         </div>
@@ -482,6 +481,11 @@ export default function TsunamiMap() {
             STOP ALERT
           </button>
         )}
+
+        {/* Mute Button */}
+        <button className={`mute-btn ${muted ? 'muted' : ''}`} onClick={toggleMute}>
+          {muted ? '🔇 MUTED' : '🔊 SOUND ON'}
+        </button>
 
         {/* View Switch */}
         <a href="/globe" className="view-switch-btn">3D GLOBE</a>
@@ -502,22 +506,29 @@ export default function TsunamiMap() {
                   <button onClick={() => { startSimulation(0); setSimMenuOpen(false); }} className="sim-option">
                     <span className="sim-mag">M9.1</span>
                     <div className="sim-details">
-                      <span className="sim-name">2004 Sumatra Scenario</span>
+                      <span className="sim-name">2004 Sumatra</span>
                       <span className="sim-desc">Deadliest tsunami in recorded history</span>
                     </div>
                   </button>
                   <button onClick={() => { startSimulation(1); setSimMenuOpen(false); }} className="sim-option">
-                    <span className="sim-mag">M8.9</span>
+                    <span className="sim-mag">M9.1</span>
                     <div className="sim-details">
-                      <span className="sim-name">Andaman Mega Event</span>
-                      <span className="sim-desc">Hypothetical subduction zone rupture</span>
+                      <span className="sim-name">2011 Japan Tōhoku</span>
+                      <span className="sim-desc">Triggered Fukushima nuclear disaster</span>
                     </div>
                   </button>
                   <button onClick={() => { startSimulation(2); setSimMenuOpen(false); }} className="sim-option">
-                    <span className="sim-mag">M7.8</span>
+                    <span className="sim-mag">M9.0</span>
                     <div className="sim-details">
-                      <span className="sim-name">Bay of Bengal Event</span>
-                      <span className="sim-desc">Direct threat to Indian east coast</span>
+                      <span className="sim-name">Cascadia Subduction</span>
+                      <span className="sim-desc">US/Canada Pacific coast threat</span>
+                    </div>
+                  </button>
+                  <button onClick={() => { startSimulation(3); setSimMenuOpen(false); }} className="sim-option">
+                    <span className="sim-mag">M9.5</span>
+                    <div className="sim-details">
+                      <span className="sim-name">1960 Chile Valdivia</span>
+                      <span className="sim-desc">Largest earthquake ever recorded</span>
                     </div>
                   </button>
                   <button className="sim-cancel" onClick={() => setSimMenuOpen(false)}>
@@ -543,13 +554,13 @@ export default function TsunamiMap() {
           <div className="panel-section">
             <div className="section-header">
               <span className="section-icon">▣</span>
-              <span className="section-title">INDIA COASTAL RISK</span>
+              <span className="section-title">COASTAL RISK ZONES</span>
             </div>
             <div className="risk-grid">
-              {INDIAN_COASTAL_REGIONS.map(region => (
+              {GLOBAL_COASTAL_REGIONS.map(region => (
                 <div
                   key={region.name}
-                  className={`risk-item ${riskAssessment.affectedRegions.includes(region.name) ? 'affected' : ''}`}
+                  className="risk-item"
                 >
                   <div className="risk-name">{region.name}</div>
                   <div className="risk-meta">
@@ -569,10 +580,10 @@ export default function TsunamiMap() {
           <div className="panel-section">
             <div className="section-header">
               <span className="section-icon">▣</span>
-              <span className="section-title">REGIONAL STATUS</span>
+              <span className="section-title">TSUNAMI BASINS</span>
             </div>
             <div className="region-list">
-              {OTHER_RISK_REGIONS.map(region => (
+              {TSUNAMI_BASINS.map(region => (
                 <div key={region.name} className="region-item">
                   <span className="region-name">{region.name}</span>
                   <span
@@ -601,8 +612,8 @@ export default function TsunamiMap() {
                 <span className="metric-label">Avg. Amplitude</span>
               </div>
               <div className="metric">
-                <span className="metric-value">{indianOceanEvents.filter(e => e.magnitude >= 5).length}</span>
-                <span className="metric-label">M5+ Events (IO)</span>
+                <span className="metric-value">{liveEvents.filter(e => e.magnitude >= 5).length}</span>
+                <span className="metric-label">M5+ Events</span>
               </div>
               <div className="metric">
                 <span className="metric-value">{liveEvents.filter(e => e.depth < 70).length}</span>
@@ -616,15 +627,67 @@ export default function TsunamiMap() {
         <div className="map-container">
           <Map
             initialViewState={{
-              longitude: 85,
-              latitude: 5,
-              zoom: 3.8,
+              longitude: 0,
+              latitude: 20,
+              zoom: 1.5,
             }}
             style={{ width: '100%', height: '100%' }}
             mapStyle="mapbox://styles/mapbox/dark-v11"
             mapboxAccessToken={mapboxToken}
           >
             <NavigationControl position="top-right" />
+
+            {/* Tsunami Warning Impact Zones (only for tsunami events) */}
+            <Source id="tsunami-impact" type="geojson" data={tsunamiImpactGeoJSON}>
+              <Layer
+                id="tsunami-impact-fill"
+                type="fill"
+                paint={{
+                  'fill-color': [
+                    'case',
+                    ['==', ['get', 'zoneType'], 'severe'], '#dc2626',
+                    ['==', ['get', 'zoneType'], 'moderate'], '#fb923c',
+                    '#facc15'
+                  ],
+                  'fill-opacity': ['get', 'opacity']
+                }}
+              />
+              <Layer
+                id="tsunami-impact-line"
+                type="line"
+                paint={{
+                  'line-color': [
+                    'case',
+                    ['==', ['get', 'zoneType'], 'severe'], 'rgba(220, 38, 38, 0.6)',
+                    ['==', ['get', 'zoneType'], 'moderate'], 'rgba(251, 146, 60, 0.5)',
+                    'rgba(250, 204, 21, 0.4)'
+                  ],
+                  'line-width': 2,
+                  'line-dasharray': [4, 2]
+                }}
+              />
+            </Source>
+
+            {/* Geographic Wave Propagation Circles (zoom-independent) - only shown during simulations */}
+            <Source id="wave-circles" type="geojson" data={waveCirclesGeoJSON}>
+              <Layer
+                id="wave-circles-fill"
+                type="fill"
+                paint={{
+                  'fill-color': '#dc2626',
+                  'fill-opacity': ['*', ['get', 'opacity'], 0.3]
+                }}
+              />
+              <Layer
+                id="wave-circles-line"
+                type="line"
+                paint={{
+                  'line-color': '#dc2626',
+                  'line-width': 2,
+                  'line-opacity': ['get', 'opacity']
+                }}
+              />
+            </Source>
 
             {/* Station Markers */}
             {stations.map(station => (
@@ -644,7 +707,7 @@ export default function TsunamiMap() {
               </Marker>
             ))}
 
-            {/* Simulated Event & Wave Propagation */}
+            {/* Simulated Event Epicenter (wave rings are now GeoJSON layers) */}
             {simulatedEvent && (
               <Marker
                 longitude={simulatedEvent.lng}
@@ -652,33 +715,6 @@ export default function TsunamiMap() {
                 anchor="center"
               >
                 <div className="simulated-epicenter">
-                  {/* Wave propagation rings */}
-                  {waveRadius > 0 && (
-                    <>
-                      <div
-                        className="wave-ring wave-1"
-                        style={{
-                          width: `${Math.min(waveRadius / 8, 400)}px`,
-                          height: `${Math.min(waveRadius / 8, 400)}px`,
-                        }}
-                      />
-                      <div
-                        className="wave-ring wave-2"
-                        style={{
-                          width: `${Math.min(waveRadius / 10, 320)}px`,
-                          height: `${Math.min(waveRadius / 10, 320)}px`,
-                        }}
-                      />
-                      <div
-                        className="wave-ring wave-3"
-                        style={{
-                          width: `${Math.min(waveRadius / 12, 250)}px`,
-                          height: `${Math.min(waveRadius / 12, 250)}px`,
-                        }}
-                      />
-                    </>
-                  )}
-                  {/* Epicenter */}
                   <div className="epicenter-core">
                     <span className="epicenter-mag">M{simulatedEvent.magnitude}</span>
                   </div>
@@ -687,15 +723,9 @@ export default function TsunamiMap() {
               </Marker>
             )}
 
-            {/* Earthquake Markers with Impact Radius */}
+            {/* Earthquake Markers */}
             {liveEvents.slice(0, 20).map(event => {
               const size = Math.max(20, Math.min(50, event.magnitude * 7));
-              // Calculate impact radius based on magnitude (rough estimate)
-              // M4.5 ~ 50km, M5.5 ~ 150km, M6.5 ~ 450km, M7.5 ~ 1400km
-              const impactRadiusKm = Math.pow(10, (event.magnitude - 3) / 1.5) * 15;
-              // Convert km to pixels at this zoom level (approximate)
-              const impactRadiusPx = Math.min(impactRadiusKm / 3, 300);
-              const showImpact = event.magnitude >= 5.0;
 
               return (
                 <Marker
@@ -704,49 +734,16 @@ export default function TsunamiMap() {
                   latitude={event.lat}
                   anchor="center"
                 >
-                  <div className="earthquake-container">
-                    {/* Impact radius zones */}
-                    {showImpact && (
-                      <>
-                        <div
-                          className={`impact-zone severe ${event.tsunami ? 'tsunami-zone' : ''}`}
-                          style={{
-                            width: `${impactRadiusPx * 0.3}px`,
-                            height: `${impactRadiusPx * 0.3}px`,
-                          }}
-                        />
-                        <div
-                          className={`impact-zone moderate ${event.tsunami ? 'tsunami-zone' : ''}`}
-                          style={{
-                            width: `${impactRadiusPx * 0.6}px`,
-                            height: `${impactRadiusPx * 0.6}px`,
-                          }}
-                        />
-                        <div
-                          className={`impact-zone light ${event.tsunami ? 'tsunami-zone' : ''}`}
-                          style={{
-                            width: `${impactRadiusPx}px`,
-                            height: `${impactRadiusPx}px`,
-                          }}
-                        />
-                      </>
-                    )}
-                    <motion.div
-                      className={`earthquake-marker ${event.tsunami ? 'tsunami' : ''} ${event.in_region ? 'in-region' : ''}`}
-                      onClick={() => setSelectedEvent(event)}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      style={{ width: size, height: size }}
-                    >
-                      <span className="eq-pulse" />
-                      <span className="eq-core">{event.magnitude.toFixed(1)}</span>
-                    </motion.div>
-                    {showImpact && (
-                      <div className="impact-label">
-                        ~{Math.round(impactRadiusKm)}km radius
-                      </div>
-                    )}
-                  </div>
+                  <motion.div
+                    className={`earthquake-marker ${event.tsunami ? 'tsunami' : ''} ${event.in_region ? 'in-region' : ''}`}
+                    onClick={() => setSelectedEvent(event)}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    style={{ width: size, height: size }}
+                  >
+                    <span className="eq-pulse" />
+                    <span className="eq-core">{event.magnitude.toFixed(1)}</span>
+                  </motion.div>
                 </Marker>
               );
             })}
@@ -824,8 +821,8 @@ export default function TsunamiMap() {
                       <span className="row-value">{new Date(selectedEvent.timestamp).toLocaleString()}</span>
                     </div>
                     <div className="popup-row">
-                      <span className="row-label">Distance to India</span>
-                      <span className="row-value">{Math.round(calculateDistanceToIndia(selectedEvent.lat, selectedEvent.lng))} km</span>
+                      <span className="row-label">Coordinates</span>
+                      <span className="row-value">{selectedEvent.lat.toFixed(2)}°, {selectedEvent.lng.toFixed(2)}°</span>
                     </div>
                   </div>
                 </div>
@@ -876,7 +873,7 @@ export default function TsunamiMap() {
               {riskAssessment.threateningEvents.length === 0 ? (
                 <div className="no-threats">
                   <span className="ok-icon">✓</span>
-                  <span>No significant threats detected in the Indian Ocean region.</span>
+                  <span>No significant threats detected globally.</span>
                 </div>
               ) : (
                 riskAssessment.threateningEvents.map(event => (
@@ -887,7 +884,7 @@ export default function TsunamiMap() {
                     </div>
                     <div className="threat-details">
                       <span>Depth: {event.depth.toFixed(0)}km</span>
-                      <span>Distance: {Math.round(calculateDistanceToIndia(event.lat, event.lng))}km</span>
+                      <span>Coords: {event.lat.toFixed(1)}°, {event.lng.toFixed(1)}°</span>
                     </div>
                   </div>
                 ))
@@ -907,7 +904,7 @@ export default function TsunamiMap() {
               </div>
               <div className="legend-item">
                 <span className="legend-marker eq-legend" />
-                <span>Earthquake</span>
+                <span>Earthquake (size = magnitude)</span>
               </div>
               <div className="legend-item">
                 <span className="legend-marker tsunami-legend" />
@@ -915,7 +912,15 @@ export default function TsunamiMap() {
               </div>
               <div className="legend-item">
                 <span className="legend-marker io-legend" />
-                <span>Indian Ocean Event</span>
+                <span>Significant Event (M6+)</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-marker impact-legend" />
+                <span>Tsunami Impact Zone</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-marker wave-legend" />
+                <span>Wave Propagation (simulation)</span>
               </div>
             </div>
           </div>
@@ -1200,6 +1205,30 @@ export default function TsunamiMap() {
           50% { transform: scale(1.05); }
         }
 
+        .mute-btn {
+          padding: 8px 14px;
+          background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+          border: 1px solid #4b5563;
+          border-radius: 4px;
+          color: #10b981;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-right: 12px;
+        }
+
+        .mute-btn:hover {
+          background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+        }
+
+        .mute-btn.muted {
+          color: #ef4444;
+          border-color: #ef4444;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
+        }
+
         /* Simulation Controls */
         .simulation-controls {
           margin-left: auto;
@@ -1468,60 +1497,6 @@ export default function TsunamiMap() {
         @keyframes epicenterPulse {
           0% { transform: scale(1); opacity: 1; }
           100% { transform: scale(2); opacity: 0; }
-        }
-
-        /* Earthquake Impact Zones */
-        .earthquake-container {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .impact-zone {
-          position: absolute;
-          border-radius: 50%;
-          pointer-events: none;
-          opacity: 0.3;
-        }
-
-        .impact-zone.severe {
-          background: radial-gradient(circle, rgba(220, 38, 38, 0.4) 0%, rgba(220, 38, 38, 0) 70%);
-          border: 1px dashed rgba(220, 38, 38, 0.5);
-        }
-
-        .impact-zone.moderate {
-          background: radial-gradient(circle, rgba(251, 146, 60, 0.3) 0%, rgba(251, 146, 60, 0) 70%);
-          border: 1px dashed rgba(251, 146, 60, 0.4);
-        }
-
-        .impact-zone.light {
-          background: radial-gradient(circle, rgba(250, 204, 21, 0.2) 0%, rgba(250, 204, 21, 0) 70%);
-          border: 1px dashed rgba(250, 204, 21, 0.3);
-        }
-
-        .impact-zone.tsunami-zone {
-          animation: tsunamiPulse 2s infinite ease-out;
-        }
-
-        @keyframes tsunamiPulse {
-          0% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.05); }
-          100% { opacity: 0.3; transform: scale(1); }
-        }
-
-        .impact-label {
-          position: absolute;
-          bottom: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 9px;
-          color: rgba(250, 204, 21, 0.8);
-          white-space: nowrap;
-          background: rgba(0, 0, 0, 0.6);
-          padding: 2px 6px;
-          border-radius: 3px;
         }
 
         /* Main Content */
@@ -1875,6 +1850,17 @@ export default function TsunamiMap() {
         .io-legend {
           background: #3b82f6;
           border: 2px solid #60a5fa;
+        }
+
+        .impact-legend {
+          background: linear-gradient(135deg, rgba(220, 38, 38, 0.3) 0%, rgba(251, 146, 60, 0.2) 50%, rgba(250, 204, 21, 0.15) 100%);
+          border: 2px dashed #fb923c;
+        }
+
+        .wave-legend {
+          background: transparent;
+          border: 2px solid #dc2626;
+          box-shadow: 0 0 6px rgba(220, 38, 38, 0.5);
         }
 
         /* Map Container */

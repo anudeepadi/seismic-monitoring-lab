@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Training from './pages/Training';
 import Visualization from './pages/Visualization';
@@ -13,13 +14,15 @@ import TsunamiGlobe from './pages/TsunamiGlobe';
 function App() {
   return (
     <Routes>
+      {/* SENTINEL Landing Page */}
+      <Route path="/" element={<Landing />} />
       {/* Full-screen Tsunami Warning Map (no layout) */}
       <Route path="/tsunami" element={<TsunamiMap />} />
       {/* Full-screen 3D Globe Visualization with Cesium (no layout) */}
       <Route path="/globe" element={<TsunamiGlobe />} />
 
       {/* Standard pages with sidebar layout */}
-      <Route path="/*" element={
+      <Route path="/app/*" element={
         <Layout>
           <AnimatePresence mode="wait">
             <Routes>
