@@ -483,6 +483,9 @@ export default function TsunamiMap() {
           </button>
         )}
 
+        {/* View Switch */}
+        <a href="/globe" className="view-switch-btn">3D GLOBE</a>
+
         {/* Simulation Controls */}
         <div className="simulation-controls">
           {!simulationActive ? (
@@ -1319,6 +1322,26 @@ export default function TsunamiMap() {
         .sim-cancel:hover {
           background: #262626;
           color: #a3a3a3;
+        }
+
+        .view-switch-btn {
+          padding: 8px 16px;
+          background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+          border: 1px solid #22d3ee;
+          border-radius: 4px;
+          color: white;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.2s;
+          margin-right: 12px;
+        }
+
+        .view-switch-btn:hover {
+          background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+          transform: translateY(-1px);
         }
 
         .sim-active {

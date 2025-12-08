@@ -8,12 +8,15 @@ import Models from './pages/Models';
 import Experiments from './pages/Experiments';
 import SeismicData from './pages/SeismicData';
 import TsunamiMap from './pages/TsunamiMap';
+import TsunamiGlobe from './pages/TsunamiGlobe';
 
 function App() {
   return (
     <Routes>
       {/* Full-screen Tsunami Warning Map (no layout) */}
       <Route path="/tsunami" element={<TsunamiMap />} />
+      {/* Full-screen 3D Globe Visualization with Cesium (no layout) */}
+      <Route path="/globe" element={<TsunamiGlobe />} />
 
       {/* Standard pages with sidebar layout */}
       <Route path="/*" element={
