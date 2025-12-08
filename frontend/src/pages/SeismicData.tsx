@@ -93,7 +93,7 @@ export default function SeismicData() {
     }
   };
 
-  // Fetch available events and auto-load data
+  // Fetch available events on mount
   useEffect(() => {
     fetch(`${API_BASE}/seismic/events`)
       .then(res => res.json())
@@ -104,9 +104,6 @@ export default function SeismicData() {
 
     // Auto-load training images on mount (fast - local files)
     fetchTrainingImages();
-    // Auto-load velocity model on mount (fast - computed locally)
-    fetchVelocityModel();
-    // Note: NOT auto-downloading waveforms - that requires network fetch from IRIS
   }, []);
 
   // Fetch event details when selected
@@ -144,6 +141,34 @@ export default function SeismicData() {
     setLoading(prev => ({ ...prev, velocity: false }));
   };
 
+  // Load cached waveforms (fast - from local cache)
+  const loadCachedWaveforms = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/seismic/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_name: 'sumatra_2004',
+          duration_minutes: 30,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'cached' && data.stations) {
+        setStations(data.stations);
+        setDownloadStatus(`Loaded ${data.waveforms_downloaded} cached waveforms from ${data.stations.length} stations`);
+        renderWaveformPreview(data.stations);
+      }
+    } catch (err) {
+      console.error('Failed to load cached waveforms:', err);
+    }
+  }, []);
+
+  // Auto-load velocity model and cached waveforms on mount
+  useEffect(() => {
+    fetchVelocityModel();
+    loadCachedWaveforms();
+  }, []);
+
   // Download seismic data
   const downloadData = async () => {
     setLoading(prev => ({ ...prev, download: true }));
@@ -160,7 +185,10 @@ export default function SeismicData() {
       const data = await res.json();
       if (data.stations) {
         setStations(data.stations);
-        setDownloadStatus(`Downloaded ${data.waveforms_downloaded} waveforms from ${data.stations.length} stations`);
+        const statusMsg = data.status === 'cached'
+          ? `Loaded ${data.waveforms_downloaded} cached waveforms from ${data.stations.length} stations`
+          : `Downloaded ${data.waveforms_downloaded} waveforms from ${data.stations.length} stations`;
+        setDownloadStatus(statusMsg);
         renderWaveformPreview(data.stations);
       }
     } catch (err) {

@@ -170,10 +170,16 @@ async def download_seismic_data(
         loader = IRISDataLoader()
         event = loader.get_event(request.event_name)
 
-        # Check cache first
+        # Check cache first - if cached, load and return the station data
         cache_file = Path("data/seismic_cache") / f"{request.event_name}_{request.duration_minutes}min.npz"
 
         if cache_file.exists():
+            # Load cached waveforms to get station info
+            waveforms = loader.download_event_data(
+                request.event_name,
+                duration_minutes=request.duration_minutes,
+                use_cache=True,
+            )
             return {
                 "status": "cached",
                 "event": {
@@ -181,8 +187,19 @@ async def download_seismic_data(
                     "magnitude": event.magnitude,
                     "origin_time": event.origin_time.isoformat(),
                 },
+                "waveforms_downloaded": len(waveforms),
+                "stations": [
+                    {
+                        "network": wf.station.network,
+                        "station": wf.station.station,
+                        "latitude": wf.station.latitude,
+                        "longitude": wf.station.longitude,
+                        "samples": len(wf.data),
+                    }
+                    for wf in waveforms
+                ],
                 "cache_file": str(cache_file),
-                "message": "Data already downloaded. Use /seismic/training-data to get PINN-ready format.",
+                "message": "Loaded from cache.",
             }
 
         # Start download
@@ -456,7 +473,7 @@ async def list_training_result_images() -> Dict[str, Any]:
         })
         images.append({
             "filename": img_file.name,
-            "path": f"/api/v1/seismic/training-results/image/{img_file.name}",
+            "path": f"/seismic/training-results/image/{img_file.name}",
             "title": info["title"],
             "description": info["description"],
             "size_bytes": img_file.stat().st_size,
