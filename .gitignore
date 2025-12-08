@@ -90,3 +90,7 @@ yarn-error.log*
 *.tmp
 *.temp
 *.bak
+
+# Large data files
+Eartquakes-1990-2023.csv
+*.csv
