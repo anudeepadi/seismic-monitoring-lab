@@ -1,306 +1,312 @@
-# PINN Seismic Inversion
+# PINN Seismic - Real-Time Tsunami Warning System
 
-Physics-Informed Neural Networks for Seismic Waveform Inversion and Velocity Model Prediction
+A physics-informed neural network platform combining deep learning with seismic wave physics for **real-time earthquake detection and tsunami early warning** in the Indian Ocean region.
 
-## Overview
+---
 
-This project implements state-of-the-art Physics-Informed Neural Networks (PINNs) for seismic waveform inversion. It combines the power of deep learning with physical constraints from wave equations to predict subsurface velocity models from seismic data.
+## Tsunami Early Warning System
 
-### Key Features
+### Overview
 
-- **Multiple Neural Network Architectures**
-  - SIREN (Sinusoidal Representation Networks)
-  - Fourier Feature Networks
-  - Modulated SIREN with velocity conditioning
-  - Attention-based architectures
+This system provides **real-time seismic monitoring** focused on the Indian Ocean - the world's most tsunami-prone region. It integrates live data from global seismograph networks to detect potentially tsunamigenic earthquakes and provide early warnings.
 
-- **Comprehensive Physics**
-  - Acoustic wave equation
-  - Elastic wave equation
-  - Viscoacoustic wave equation with attenuation
-  - Multiple source types (Ricker wavelet, Gaussian, plane wave)
-  - Boundary conditions (absorbing, PML, free surface)
+### Key Tsunami Features
 
-- **Advanced Training**
-  - Adaptive loss weighting (GradNorm, Uncertainty, SoftAdapt)
-  - Curriculum learning
-  - Multi-stage training
-  - Mixed precision support
+#### Real-Time Earthquake Detection
+- **Live seismic streaming** from IRIS SeedLink network
+- **8 monitoring stations** strategically positioned around the Indian Ocean:
+  - PALK (Sri Lanka) - Central Indian Ocean coverage
+  - COCO (Cocos Islands) - Eastern Indian Ocean
+  - DGAR (Diego Garcia) - Central monitoring point
+  - CHTO (Thailand) - Andaman Sea coverage
+  - WRAB (Australia) - Southern detection
+  - NWAO (Australia) - Southwest monitoring
+  - TATO (Taiwan) - Northern boundary
+  - MBWA (Australia) - Western Australia coast
 
-- **Production-Ready**
-  - FastAPI backend with WebSocket support
-  - React frontend with real-time visualizations
-  - Docker deployment ready
-  - Comprehensive checkpointing and experiment tracking
+#### Tsunami Potential Assessment
+Earthquakes are automatically assessed for tsunami risk based on:
+- **Magnitude threshold**: M7.0+ earthquakes flagged as high risk
+- **Depth analysis**: Shallow events (<100km) pose greater tsunami risk
+- **Location**: Submarine earthquakes in subduction zones prioritized
+- **Historical patterns**: Comparison with known tsunamigenic events
 
-## Quick Start
+#### Interactive 3D Globe Visualization
+- **Mapbox GL** powered 3D globe with real-time updates
+- **Station markers** showing live amplitude readings
+- **Earthquake epicenters** with magnitude-scaled visualization
+- **Impact radius zones**:
+  - Severe (red) - Immediate danger zone
+  - Moderate (orange) - Strong shaking expected
+  - Light (yellow) - Felt but minimal damage
+- **Tsunami wave propagation** animation for major events
+
+#### Earthquake Simulation System
+Test the warning system with historical scenarios:
+1. **2004 Sumatra Earthquake** (M9.1) - The Boxing Day tsunami
+2. **Andaman Mega Event** (M9.5) - Hypothetical worst-case scenario
+3. **Bay of Bengal Event** (M8.2) - Regional impact simulation
+
+#### Emergency Alert System
+- **Visual alerts**: Red flashing warning banners
+- **Audio alerts**: Multi-frequency emergency siren (Purge-style)
+- **Browser notifications**: Push alerts for significant events
+- **Real-time waveform display**: Live seismograph visualization
+
+---
+
+## Live Demo
+
+- **Backend API**: https://web-production-09ae.up.railway.app
+- **Frontend**: Deploy to Vercel (see deployment section)
+
+---
+
+## Screenshots
+
+### Tsunami Warning Map
+The main interface showing the Indian Ocean region with:
+- Active seismic stations (green = online, red = alert)
+- Recent earthquake markers
+- Real-time waveform panel
+- Event feed with tsunami assessments
+
+### Simulation Mode
+Test emergency protocols with historical earthquake scenarios including the devastating 2004 Sumatra event.
+
+---
+
+## Technical Architecture
+
+### Real-Time Data Pipeline
+
+```
+IRIS SeedLink Server
+        │
+        ▼
+┌─────────────────────┐
+│  SeedLink Streamer  │ ◄── ObsPy client
+│  (Python Backend)   │
+└─────────────────────┘
+        │
+        ▼
+┌─────────────────────┐
+│  WebSocket Manager  │ ◄── FastAPI
+│  /api/v1/streams    │
+└─────────────────────┘
+        │
+        ▼
+┌─────────────────────┐
+│  React Frontend     │ ◄── Mapbox GL + Recharts
+│  Real-time Updates  │
+└─────────────────────┘
+```
+
+### API Endpoints
+
+#### Streaming API (Tsunami System)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/streams/stations` | List monitored seismic stations |
+| GET | `/api/v1/streams/events` | Recent earthquakes from USGS |
+| GET | `/api/v1/streams/status` | Stream connection status |
+| WS | `/api/v1/streams/live` | Real-time waveform WebSocket |
+
+#### Seismic Data API
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/seismic/events` | Historical earthquake catalog |
+| POST | `/api/v1/seismic/download` | Download event waveforms |
+| GET | `/api/v1/seismic/velocity-model` | Regional velocity model |
+
+---
+
+## Physics-Informed Neural Networks
+
+Beyond tsunami warnings, this platform includes advanced PINN capabilities for seismic research:
+
+### Neural Network Architectures
+- **SIREN**: Sinusoidal networks for wave representation
+- **Fourier Features**: High-frequency function learning
+- **Modulated SIREN**: Velocity-conditioned models
+- **Attention-based**: For complex geological structures
+
+### Wave Equation Physics
+- Acoustic wave equation
+- Elastic wave equation (P and S waves)
+- Viscoacoustic with attenuation (Q factor)
+- Multiple source types (Ricker wavelet, Gaussian)
+
+### Training Features
+- Adaptive loss weighting (GradNorm, Uncertainty)
+- Multi-stage curriculum learning
+- Real-time training visualization
+- Mixed precision GPU support
+
+---
+
+## Installation
 
 ### Prerequisites
-
 - Python 3.10+
-- Node.js 18+ (for frontend)
-- CUDA 12.1+ (optional, for GPU support)
+- Node.js 18+
+- CUDA 12.1+ (optional, for GPU)
 
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/pinn-seismic.git
-cd pinn-seismic
-```
-
-2. Run the setup script:
-```bash
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-```
-
-Or manually:
+### Quick Start
 
 ```bash
-# Create virtual environment
+# Clone repository
+git clone https://github.com/anudeepadi/bug-free-journey.git
+cd bug-free-journey
+
+# Setup Python environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install PyTorch (with CUDA support)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
 
-# Install frontend dependencies
-cd frontend && npm install && cd ..
-```
+# Start backend
+python -m uvicorn src.api.main:app --reload --port 8000
 
-### Running the Application
-
-1. Start the backend API:
-```bash
-source venv/bin/activate
-python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-2. In a new terminal, start the frontend:
-```bash
+# In new terminal - start frontend
 cd frontend
+npm install
 npm run dev
 ```
 
-3. Open http://localhost:5173 in your browser
+Open http://localhost:5173/tsunami for the warning system.
 
-### Training from Command Line
+---
 
-```bash
-# Basic training
-python scripts/train.py --model siren --epochs 1000 --velocity-model marmousi
+## Deployment
 
-# With configuration file
-python scripts/train.py --config configs/default.yaml
+### Backend (Railway)
+Already deployed at: https://web-production-09ae.up.railway.app
 
-# With custom parameters
-python scripts/train.py \
-    --model fourier \
-    --hidden-dim 512 \
-    --num-layers 8 \
-    --learning-rate 0.0001 \
-    --batch-size 8192 \
-    --epochs 2000 \
-    --velocity-model marmousi \
-    --adaptive-weights \
-    --adaptive-method gradnorm
-```
+### Frontend (Vercel)
+1. Import repo to Vercel
+2. Set root directory: `frontend`
+3. Add environment variables:
+   - `VITE_API_URL=https://web-production-09ae.up.railway.app`
+   - `VITE_WS_URL=wss://web-production-09ae.up.railway.app`
+4. Deploy
 
-## Docker Deployment
-
-### CPU-only:
-```bash
-docker-compose up --build
-```
-
-### With GPU support:
-```bash
-docker-compose -f docker-compose.gpu.yml up --build
-```
-
-Access the application at http://localhost:3000
+---
 
 ## Project Structure
 
 ```
-pinn-seismic/
 ├── src/
-│   ├── models/           # Neural network architectures
-│   │   ├── siren.py      # SIREN implementation
-│   │   ├── fourier.py    # Fourier feature networks
-│   │   ├── modulated.py  # Modulated/conditional networks
-│   │   ├── attention.py  # Attention mechanisms
-│   │   └── pinn.py       # Main PINN model
-│   ├── physics/          # Physics constraints
-│   │   ├── wave_equation.py
-│   │   ├── sources.py
-│   │   └── boundary.py
-│   ├── data/             # Data generation and loading
-│   │   ├── generators.py
-│   │   ├── velocity_models.py
-│   │   └── datasets.py
-│   ├── training/         # Training utilities
-│   │   ├── trainer.py
-│   │   ├── losses.py
-│   │   ├── adaptive_weights.py
-│   │   └── schedulers.py
-│   ├── api/              # FastAPI backend
-│   │   ├── main.py
-│   │   ├── routes.py
-│   │   ├── websocket_manager.py
-│   │   └── training_manager.py
-│   └── utils/            # Utilities
-│       └── checkpointing.py
-├── frontend/             # React frontend
+│   ├── api/
+│   │   ├── main.py              # FastAPI app
+│   │   ├── streaming_routes.py  # Tsunami/seismic streaming
+│   │   └── seismic_routes.py    # Historical data API
+│   ├── data/
+│   │   └── seismic_data_loader.py  # IRIS/USGS data fetching
+│   ├── models/                  # PINN architectures
+│   ├── physics/                 # Wave equations
+│   └── training/                # Training utilities
+├── frontend/
 │   ├── src/
 │   │   ├── pages/
-│   │   ├── components/
+│   │   │   └── TsunamiMap.tsx   # Main warning interface
 │   │   ├── hooks/
-│   │   └── stores/
+│   │   │   └── useSeismicStream.ts  # Real-time data hook
+│   │   └── components/
 │   └── ...
-├── configs/              # Configuration files
-├── scripts/              # Utility scripts
-├── tests/                # Test suite
-└── docker-compose.yml    # Docker configuration
+├── scripts/
+│   └── test_seedlink.py         # SeedLink connection test
+└── configs/
 ```
 
-## Model Architectures
+---
 
-### SIREN (Sinusoidal Representation Networks)
+## Indian Ocean Tsunami Risk
 
-SIREN uses periodic sine activations which are ideal for representing signals with high-frequency content like seismic waves.
+### Why Focus on Indian Ocean?
 
-```python
-from src.models.siren import SIRENNetwork
+The Indian Ocean hosts some of the world's most active subduction zones:
 
-model = SIRENNetwork(
-    input_dim=3,      # x, z, t
-    output_dim=1,     # pressure
-    hidden_dim=256,
-    num_layers=6,
-    omega_0=30.0,     # First layer frequency
-)
-```
+1. **Sunda Trench** (Indonesia) - Generated the 2004 M9.1 earthquake
+2. **Andaman-Nicobar Subduction** - Continuous seismic activity
+3. **Makran Subduction Zone** (Pakistan/Iran) - Historically tsunamigenic
 
-### Fourier Feature Networks
+### Historical Events
+| Year | Location | Magnitude | Casualties |
+|------|----------|-----------|------------|
+| 2004 | Sumatra | 9.1 | 230,000+ |
+| 1883 | Krakatoa | ~9.0 (volcanic) | 36,000+ |
+| 1945 | Makran | 8.1 | 4,000+ |
 
-Fourier features help the network learn high-frequency functions by mapping inputs to a higher-dimensional space.
+This system aims to provide early warning for coastal communities in:
+- Indonesia
+- Sri Lanka
+- India (Tamil Nadu, Andaman Islands)
+- Thailand
+- Malaysia
+- Bangladesh
+- Myanmar
 
-```python
-from src.models.fourier import FourierFeatureNetwork
-
-model = FourierFeatureNetwork(
-    input_dim=3,
-    output_dim=1,
-    hidden_dim=256,
-    num_layers=6,
-    num_frequencies=128,
-    sigma=10.0,
-)
-```
-
-### Modulated SIREN
-
-Velocity-conditioned networks that can adapt to different velocity models.
-
-```python
-from src.models.modulated import VelocityConditionedPINN
-
-model = VelocityConditionedPINN(
-    coord_dim=3,
-    output_dim=1,
-    hidden_dim=256,
-    num_layers=6,
-    velocity_channels=64,
-)
-```
-
-## Physics Configuration
-
-### Wave Equations
-
-The system supports multiple wave equation formulations:
-
-- **Acoustic**: Simple pressure wave equation for fluids
-- **Elastic**: Coupled P and S wave propagation for solids
-- **Viscoacoustic**: Includes attenuation effects (Q factor)
-
-### Velocity Models
-
-Built-in velocity models:
-- **Marmousi**: Industry-standard benchmark
-- **Layered**: Horizontally layered medium
-- **Salt Dome**: Salt body with complex geometry
-- **Fault**: Faulted geological structure
-
-## API Reference
-
-### REST Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/training/start` | Start new training job |
-| GET | `/api/training/jobs` | List all training jobs |
-| GET | `/api/training/jobs/{id}` | Get job status |
-| POST | `/api/training/jobs/{id}/pause` | Pause training |
-| POST | `/api/training/jobs/{id}/resume` | Resume training |
-| GET | `/api/models` | List saved models |
-| POST | `/api/inference` | Run inference |
-
-### WebSocket
-
-Connect to `/ws/training/{job_id}` for real-time training updates.
+---
 
 ## Configuration
 
-See `configs/default.yaml` for all available options:
+### Tsunami Alert Thresholds (configurable)
 
-```yaml
-model:
-  type: siren
-  hidden_dim: 256
-  num_layers: 6
-
-training:
-  epochs: 1000
-  batch_size: 4096
-  learning_rate: 0.0001
-
-physics:
-  wave_equation: acoustic
-  velocity_model: marmousi
-```
-
-## Performance Tips
-
-1. **Use GPU**: Training is significantly faster on GPU
-2. **Batch Size**: Larger batches improve throughput
-3. **Mixed Precision**: Enable for faster training on modern GPUs
-4. **Adaptive Weights**: Use GradNorm for balanced multi-task learning
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@software{pinn_seismic,
-  title = {PINN Seismic Inversion},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/pinn-seismic}
+```python
+TSUNAMI_THRESHOLDS = {
+    'magnitude_warning': 7.0,      # Yellow alert
+    'magnitude_critical': 7.5,     # Orange alert
+    'magnitude_emergency': 8.0,    # Red alert + siren
+    'depth_shallow': 70,           # km - higher tsunami risk
+    'depth_very_shallow': 30,      # km - critical tsunami risk
 }
 ```
 
+### Monitored Region
+```python
+INDIAN_OCEAN_BOUNDS = {
+    'min_lat': -40,
+    'max_lat': 30,
+    'min_lon': 30,
+    'max_lon': 130,
+}
+```
+
+---
+
+## Contributing
+
+Contributions welcome! Priority areas:
+1. Additional seismic station integration
+2. Improved tsunami wave propagation models
+3. Mobile app for alerts
+4. SMS/email notification system
+5. Historical event analysis tools
+
+---
+
+## License
+
+MIT License - See LICENSE file
+
+---
+
 ## Acknowledgments
 
-- SIREN: [Implicit Neural Representations with Periodic Activation Functions](https://arxiv.org/abs/2006.09661)
-- Fourier Features: [Fourier Features Let Networks Learn High Frequency Functions](https://arxiv.org/abs/2006.10739)
-- PINNs: [Physics-informed neural networks](https://www.sciencedirect.com/science/article/pii/S0021999118307125)
+- **IRIS** (Incorporated Research Institutions for Seismology) - SeedLink data
+- **USGS** - Earthquake catalog and hazard data
+- **NOAA** - Tsunami warning protocols
+- **ObsPy** - Seismological data processing
+- **Mapbox** - Globe visualization
+
+---
+
+## Emergency Contacts
+
+In case of actual tsunami warning:
+- **Indonesia**: BMKG - bmkg.go.id
+- **India**: INCOIS - incois.gov.in
+- **Sri Lanka**: DMC - www.dmc.gov.lk
+- **Thailand**: TMD - www.tmd.go.th
+
+**This is a research/educational tool. Always follow official government warnings.**
