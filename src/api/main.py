@@ -105,9 +105,19 @@ def create_app() -> FastAPI:
     app.include_router(seismic_router, prefix="/api/v1")
 
     # Mount static files for frontend (if built)
-    static_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
-    if static_path.exists():
-        app.mount("/", StaticFiles(directory=str(static_path), html=True), name="static")
+    # Check multiple locations for static files
+    possible_paths = [
+        Path(__file__).parent.parent.parent / "frontend" / "dist",
+        Path(__file__).parent.parent.parent / "static",
+        Path("frontend/dist"),
+        Path("static"),
+    ]
+
+    for static_path in possible_paths:
+        if static_path.exists() and static_path.is_dir():
+            app.mount("/", StaticFiles(directory=str(static_path), html=True), name="static")
+            logger.info(f"Serving static files from: {static_path}")
+            break
 
     return app
 
