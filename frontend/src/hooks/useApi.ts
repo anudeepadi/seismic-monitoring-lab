@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TrainingConfig, TrainingJob, Model, Experiment, SystemStatus, VelocityModel } from '../types';
+import config from '../config';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = config.apiBase;
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, {

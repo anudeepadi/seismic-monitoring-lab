@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import config from '../config';
 import {
   Globe,
   Radio,
@@ -58,7 +59,7 @@ interface TrainingImage {
   size_bytes: number;
 }
 
-const API_BASE = import.meta.env.PROD ? '/api/v1' : 'http://localhost:8000/api/v1';
+const API_BASE = config.apiBaseV1;
 
 export default function SeismicData() {
   const [events, setEvents] = useState<SeismicEvent[]>([]);

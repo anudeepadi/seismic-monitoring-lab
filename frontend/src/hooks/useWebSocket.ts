@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useTrainingStore } from '../stores/trainingStore';
+import config from '../config';
 
 interface WebSocketMessage {
   type: 'progress' | 'status' | 'error' | 'completed';
@@ -28,7 +29,7 @@ export function useWebSocket({
   const connect = useCallback(() => {
     if (!jobId) return;
 
-    const wsUrl = `ws://localhost:8000/ws/training/${jobId}`;
+    const wsUrl = `${config.wsBase}/ws/training/${jobId}`;
 
     try {
       const ws = new WebSocket(wsUrl);

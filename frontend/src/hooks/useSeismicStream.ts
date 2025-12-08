@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import config from '../config';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = config.apiBaseV1;
 
 export interface Station {
   id: string;
@@ -90,7 +91,7 @@ export function useSeismicStream() {
       return;
     }
 
-    const ws = new WebSocket(`ws://localhost:8000/api/v1/streams/live`);
+    const ws = new WebSocket(config.wsLive);
 
     ws.onopen = () => {
       console.log('WebSocket connected');
