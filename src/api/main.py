@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from .routes import router
 from .seismic_routes import router as seismic_router
+from .streaming_routes import router as streaming_router
 from .websocket_manager import WebSocketManager
 from .training_manager import TrainingManager
 
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     # Include routes
     app.include_router(router, prefix="/api/v1")
     app.include_router(seismic_router, prefix="/api/v1")
+    app.include_router(streaming_router, prefix="/api/v1")
 
     # Mount static files for frontend (if built)
     # Check multiple locations for static files
