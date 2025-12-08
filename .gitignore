@@ -41,7 +41,8 @@ ENV/
 *.ipynb
 
 # Data and outputs
-data/
+/data/
+!src/data/
 checkpoints/
 logs/
 experiments/
